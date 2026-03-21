@@ -1,3 +1,13 @@
+res.setHeader('Access-Control-Allow-Origin', '*');
+res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+res.setHeader('Access-Control-Allow-Headers', '*');
+
+// Handle preflight
+if (req.method === 'OPTIONS') {
+  res.status(200).end();
+  return;
+}
+
 export default async function handler(req, res) {
   // Allow requests from any origin (CORS fix)
   res.setHeader('Access-Control-Allow-Origin', '*');
