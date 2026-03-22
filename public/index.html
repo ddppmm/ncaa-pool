@@ -123,17 +123,20 @@ function App(){
     return{earn:e,wins:w};
   },[games,manual]);
  
-  const ranked = useMemo(()=>{
-    const sorted=Object.entries(earn).sort((a,b)=>b[1]-a[1]);
-    const result=[]; let rank=1,i=0;
+  const ALL_PLAYERS = ['DWM','CRM','James','Sylv','Km','Jimmy','Eric','Bmc','Dave','Cait','Emily','Mel','Lily'];
+
+const ranked = useMemo(() => {
+    const all = ALL_PLAYERS.map(name => [name, earn[name]||0]);
+    const sorted = all.sort((a,b) => b[1]-a[1]);
+    const result = []; let rank=1, i=0;
     while(i<sorted.length){
-      const amt=sorted[i][1],group=[];
+      const amt=sorted[i][1], group=[];
       while(i<sorted.length&&sorted[i][1]===amt){group.push(sorted[i]);i++;}
       group.forEach(([name,amt2])=>result.push({rank,name,amt:amt2}));
       rank+=group.length;
     }
     return result;
-  },[earn]);
+},[earn]);
  
   const paid   = Object.values(earn).reduce((a,b)=>a+b,0);
   const liveN  = games.filter(g=>isLive(g.status)).length;
