@@ -18,9 +18,9 @@ input[type=number]{-moz-appearance:textfield}
 <body>
 <div id="app"></div>
 <script type="module">
-import { h, render, Component } from 'https://esm.sh/preact@10';
+import { h, render } from 'https://esm.sh/preact@10';
 import { useState, useEffect, useMemo } from 'https://esm.sh/preact@10/hooks';
- 
+
 const HOME_DIGITS = [7,3,1,5,9,6,0,2,8,4];
 const AWAY_DIGITS = [1,0,2,7,9,3,6,5,8,4];
 const GRID = [
@@ -44,116 +44,139 @@ const ROUND_MAP = {
   'Championship': {payout:50},
 };
 const ROUNDS = ['Championship','Final Four','Elite Eight','Sweet 16','Second Round','First Round'];
+const ALL_PLAYERS = ['DWM','CRM','James','Sylv','Km','Jimmy','Eric','Bmc','Dave','Cait','Emily','Mel','Lily'];
+const BUYIN = 20;
 const C = {
   bg:'#0d0f14',surf:'#161b24',card:'#1e2533',border:'#2a3347',
   accent:'#f5a623',accent2:'#e84393',green:'#2ecc71',
   blue:'#4a9eff',text:'#e8edf5',muted:'#6b7a99',red:'#ff5a5a'
 };
- 
-function getWinner(h2,a){
-  if(!h2||!a) return null;
-  const hd=parseInt(h2)%10, ad=parseInt(a)%10;
-  const hi=HOME_DIGITS.indexOf(hd), ai=AWAY_DIGITS.indexOf(ad);
+
+function getWinner(hs,as){
+  if(!hs||!as) return null;
+  const hd=parseInt(hs)%10,ad=parseInt(as)%10;
+  const hi=HOME_DIGITS.indexOf(hd),ai=AWAY_DIGITS.indexOf(ad);
   if(hi===-1||ai===-1) return null;
   return GRID[ai][hi];
 }
-const isFinal = s => s==='final';
-const isLive  = s => s==='live';
- 
-function Pill({type, label}){
-  const styles = {
-    final: {background:'rgba(46,204,113,0.1)',border:'1px solid rgba(46,204,113,0.3)',color:C.green},
-    live:  {background:'rgba(245,166,35,0.15)',border:'1px solid rgba(245,166,35,0.4)',color:C.accent},
-    pre:   {background:C.surf,border:`1px solid ${C.border}`,color:C.muted},
-  };
-  const s = styles[type]||styles.pre;
+const isFinal=s=>s==='final';
+const isLive=s=>s==='live';
+
+function cellHeatColor(earn,max){
+  if(earn===0) return '#1a1f2e';
+  const pct=earn/max;
+  if(pct<=0.25) return `rgba(74,158,255,${0.3+pct*1.2})`;
+  if(pct<=0.6)  return `rgba(46,204,113,${0.4+pct*0.7})`;
+  return `rgba(245,166,35,${0.55+pct*0.45})`;
+}
+
+function Pill({type,label}){
+  const s={
+    final:{background:'rgba(46,204,113,0.1)',border:'1px solid rgba(46,204,113,0.3)',color:C.green},
+    live: {background:'rgba(245,166,35,0.15)',border:'1px solid rgba(245,166,35,0.4)',color:C.accent},
+    pre:  {background:C.surf,border:`1px solid ${C.border}`,color:C.muted},
+  }[type]||{background:C.surf,border:`1px solid ${C.border}`,color:C.muted};
   return h('span',{style:{...s,fontSize:'0.58rem',padding:'2px 7px',borderRadius:10,whiteSpace:'nowrap'}},label);
 }
- 
+
 function App(){
-  const [tab,setTab]     = useState('scores');
-  const [games,setGames] = useState([]);
-  const [feedTs,setFeedTs] = useState('Loading...');
-  const [loading,setLoading] = useState(false);
-  const [error,setError] = useState('');
-  const [manual,setManual] = useState(()=>{
+  const [tab,setTab]=useState('scores');
+  const [games,setGames]=useState([]);
+  const [feedTs,setFeedTs]=useState('Loading...');
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState('');
+  const [manual,setManual]=useState(()=>{
     const m={};
     ROUNDS.forEach(r=>{m[r]={};for(let i=0;i<16;i++)m[r][i]={home:'',away:''};});
     return m;
   });
- 
-  const fetchScores = async()=>{
-    setLoading(true); setError('');
+
+  const fetchScores=async()=>{
+    setLoading(true);setError('');
     try{
-      const res = await fetch('/api/scores');
+      const res=await fetch('/api/scores');
       if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data=await res.json();
       if(data.error) throw new Error(data.error);
       if(!data.games?.length) throw new Error('No games returned');
       setGames(data.games);
       setFeedTs(new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' ET');
-    }catch(e){ setError(e.message); }
+    }catch(e){setError(e.message);}
     setLoading(false);
   };
- 
-  useEffect(()=>{
-    fetchScores();
-    const t=setInterval(fetchScores,60000);
-    return()=>clearInterval(t);
-  },[]);
- 
+
+  useEffect(()=>{fetchScores();const t=setInterval(fetchScores,60000);return()=>clearInterval(t);},[]);
+
   const upd=(rnd,gi,side,val)=>setManual(p=>({...p,[rnd]:{...p[rnd],[gi]:{...p[rnd][gi],[side]:val}}}));
- 
-  const {earn,wins} = useMemo(()=>{
+
+  const {earn,wins}=useMemo(()=>{
     const e={},w={};
     games.forEach(g=>{
       if(!isFinal(g.status)) return;
-      const cfg=ROUND_MAP[g.round]; if(!cfg) return;
-      const p=getWinner(g.homeScore,g.awayScore); if(!p) return;
-      e[p]=(e[p]||0)+cfg.payout; w[p]=(w[p]||0)+1;
+      const cfg=ROUND_MAP[g.round];if(!cfg) return;
+      const p=getWinner(g.homeScore,g.awayScore);if(!p) return;
+      e[p]=(e[p]||0)+cfg.payout;w[p]=(w[p]||0)+1;
     });
     ROUNDS.forEach(rnd=>{
-      const cfg=ROUND_MAP[rnd]; if(!cfg) return;
+      const cfg=ROUND_MAP[rnd];if(!cfg) return;
       Object.values(manual[rnd]||{}).forEach(m=>{
         if(!m.home||!m.away) return;
-        const p=getWinner(m.home,m.away); if(!p) return;
-        e[p]=(e[p]||0)+cfg.payout; w[p]=(w[p]||0)+1;
+        const p=getWinner(m.home,m.away);if(!p) return;
+        e[p]=(e[p]||0)+cfg.payout;w[p]=(w[p]||0)+1;
       });
     });
     return{earn:e,wins:w};
   },[games,manual]);
- 
-  const ALL_PLAYERS = ['DWM','CRM','James','Sylv','Km','Jimmy','Eric','Bmc','Dave','Cait','Emily','Mel','Lily'];
 
-const ranked = useMemo(() => {
-    const all = ALL_PLAYERS.map(name => [name, earn[name]||0]);
-    const sorted = all.sort((a,b) => b[1]-a[1]);
-    const result = []; let rank=1, i=0;
+  const ranked=useMemo(()=>{
+    const all=ALL_PLAYERS.map(name=>[name,earn[name]||0]);
+    const sorted=all.sort((a,b)=>b[1]-a[1]);
+    const result=[];let rank=1,i=0;
     while(i<sorted.length){
-      const amt=sorted[i][1], group=[];
+      const amt=sorted[i][1],group=[];
       while(i<sorted.length&&sorted[i][1]===amt){group.push(sorted[i]);i++;}
       group.forEach(([name,amt2])=>result.push({rank,name,amt:amt2}));
       rank+=group.length;
     }
     return result;
-},[earn]);
- 
-  const paid   = Object.values(earn).reduce((a,b)=>a+b,0);
-  const liveN  = games.filter(g=>isLive(g.status)).length;
-  const finals = games.filter(g=>isFinal(g.status)).length;
-  const byRound = useMemo(()=>{
-    const m={};
-    games.forEach(g=>{(m[g.round]=m[g.round]||[]).push(g);});
-    return m;
+  },[earn]);
+
+  // Heat map — keyed by $ earned so hottest = most money
+  const {heatEarn,heatWins,heatMax}=useMemo(()=>{
+    const he=Array.from({length:10},()=>Array(10).fill(0));
+    const hw=Array.from({length:10},()=>Array(10).fill(0));
+    games.forEach(g=>{
+      if(!isFinal(g.status)||!g.homeScore||!g.awayScore) return;
+      const cfg=ROUND_MAP[g.round];if(!cfg) return;
+      const hd=parseInt(g.homeScore)%10,ad=parseInt(g.awayScore)%10;
+      const hi=HOME_DIGITS.indexOf(hd),ai=AWAY_DIGITS.indexOf(ad);
+      if(hi===-1||ai===-1) return;
+      he[ai][hi]+=cfg.payout;
+      hw[ai][hi]++;
+    });
+    const max=Math.max(1,...he.flat());
+    return{heatEarn:he,heatWins:hw,heatMax:max};
   },[games]);
- 
-  const rankColor = r=>r===1?'#ffd700':r===2?'#c0c0c0':r===3?'#cd7f32':C.muted;
- 
-  const tabs = [['scores','📊 Scores'],['manual','✏️ Manual'],['leaderboard','🏆 Standings'],['grid','🔲 Grid']];
- 
+
+  const hotBoxes=useMemo(()=>{
+    const boxes=[];
+    AWAY_DIGITS.forEach((a,ai)=>{
+      HOME_DIGITS.forEach((hd,hi)=>{
+        if(heatEarn[ai][hi]>0) boxes.push({player:GRID[ai][hi],hd,ad:a,w:heatWins[ai][hi],e:heatEarn[ai][hi]});
+      });
+    });
+    return boxes.sort((a,b)=>b.e-a.e||b.w-a.w).slice(0,5);
+  },[heatEarn,heatWins]);
+
+  const paid=Object.values(earn).reduce((a,b)=>a+b,0);
+  const liveN=games.filter(g=>isLive(g.status)).length;
+  const finals=games.filter(g=>isFinal(g.status)).length;
+  const byRound=useMemo(()=>{const m={};games.forEach(g=>{(m[g.round]=m[g.round]||[]).push(g);});return m;},[games]);
+  const rankColor=r=>r===1?'#ffd700':r===2?'#c0c0c0':r===3?'#cd7f32':C.muted;
+  const tabs=[['scores','📊 Scores'],['manual','✏️ Manual'],['leaderboard','🏆 Standings'],['heatmap','🔥 Heat Map'],['grid','🔲 Grid']];
+
   return h('div',{style:{background:C.bg,minHeight:'100vh',paddingBottom:60}},
- 
-    // Header
+
     h('div',{style:{background:'linear-gradient(135deg,#1a2035,#0d0f14)',borderBottom:`2px solid ${C.accent}`,padding:'14px 18px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:100}},
       h('div',null,
         h('div',{style:{fontWeight:800,fontSize:'1.5rem',letterSpacing:2,color:C.accent}},'🏀 NCAA BOX POOL'),
@@ -168,22 +191,21 @@ const ranked = useMemo(() => {
           liveN>0?`${liveN} LIVE · `:'',`Updated ${feedTs}`
         ),
         h('button',{onClick:fetchScores,disabled:loading,style:{display:'flex',alignItems:'center',gap:5,background:loading?C.surf:C.accent,border:'none',color:loading?C.muted:'#000',padding:'5px 14px',borderRadius:6,fontSize:'0.72rem',fontWeight:700,cursor:loading?'default':'pointer'}},
-          loading ? [h('span',{className:'spin'}), ' Refreshing...'] : '↻ Refresh Scores'
+          loading?[h('span',{className:'spin'}),' Refreshing...']:'↻ Refresh Scores'
         )
       )
     ),
- 
-    // Tabs
+
     h('div',{style:{display:'flex',background:C.surf,borderBottom:`1px solid ${C.border}`,padding:'0 12px',overflowX:'auto'}},
       tabs.map(([k,lbl])=>h('button',{key:k,onClick:()=>setTab(k),style:{fontSize:'0.73rem',padding:'11px 13px',background:'none',border:'none',color:tab===k?C.accent:C.muted,cursor:'pointer',whiteSpace:'nowrap',borderBottom:tab===k?`2px solid ${C.accent}`:'2px solid transparent'}},lbl))
     ),
- 
+
     h('div',{style:{padding:16,maxWidth:960,margin:'0 auto'}},
- 
-      error && h('div',{style:{background:'rgba(255,90,90,0.1)',border:'1px solid rgba(255,90,90,0.3)',borderRadius:8,padding:'10px 14px',marginBottom:14,fontSize:'0.75rem',color:C.red}},`⚠️ ${error}`),
- 
+
+      error&&h('div',{style:{background:'rgba(255,90,90,0.1)',border:'1px solid rgba(255,90,90,0.3)',borderRadius:8,padding:'10px 14px',marginBottom:14,fontSize:'0.75rem',color:C.red}},`⚠️ ${error}`),
+
       // SCORES
-      tab==='scores' && h('div',null,
+      tab==='scores'&&h('div',null,
         h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10,marginBottom:20}},
           [['Paid Out',`$${paid}`,C.accent],['Remaining',`$${260-paid}`,C.accent2],['Finals',finals,C.blue],
            [liveN>0?'🔴 Live':'Leader',liveN>0?`${liveN} now`:(ranked[0]?.name||'—'),liveN>0?C.accent:C.green]]
@@ -192,9 +214,9 @@ const ranked = useMemo(() => {
             h('div',{style:{fontWeight:800,fontSize:'1.4rem',color:c,marginTop:2}},v)
           ))
         ),
-        games.length===0&&!error && h('div',{style:{color:C.muted,textAlign:'center',padding:40,fontSize:'0.85rem'}},loading?'Fetching live scores...':'Hit ↻ Refresh to load scores'),
+        games.length===0&&!error&&h('div',{style:{color:C.muted,textAlign:'center',padding:40,fontSize:'0.85rem'}},loading?'Fetching live scores...':'Hit ↻ Refresh to load scores'),
         ROUNDS.map(rName=>{
-          const rg=byRound[rName]; if(!rg?.length) return null;
+          const rg=byRound[rName];if(!rg?.length) return null;
           const cfg=ROUND_MAP[rName];
           const fc=rg.filter(g=>isFinal(g.status)).length;
           return h('div',{key:rName,style:{marginBottom:24}},
@@ -216,22 +238,18 @@ const ranked = useMemo(() => {
                     h('span',{style:{color:C.muted,margin:'0 4px'}},' @ '),
                     h('span',{style:{color:C.blue}},g.homeName)
                   ),
-                  h('div',{style:{marginTop:2}},
-                    fin ? h(Pill,{type:'final',label:'FINAL'})
-                      : lv ? h(Pill,{type:'live',label:`🔴 ${g.period} ${g.clock}`})
-                      : h(Pill,{type:'pre',label:g.tipTime})
-                  )
+                  h('div',{style:{marginTop:2}},fin?h(Pill,{type:'final',label:'FINAL'}):lv?h(Pill,{type:'live',label:`🔴 ${g.period} ${g.clock}`}):h(Pill,{type:'pre',label:g.tipTime}))
                 ),
                 (fin||lv)&&g.homeScore
-                  ? h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',background:C.surf,border:`1px solid ${C.border}`,borderRadius:6,padding:'4px 12px',minWidth:82}},
+                  ?h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',background:C.surf,border:`1px solid ${C.border}`,borderRadius:6,padding:'4px 12px',minWidth:82}},
                       h('div',{style:{fontSize:'0.56rem',color:C.muted,textTransform:'uppercase',letterSpacing:1}},'Away – Home'),
                       h('div',{style:{fontWeight:700,fontSize:'1.05rem',color:lv?C.accent:C.text}},`${g.awayScore} – ${g.homeScore}`)
                     )
-                  : h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',background:C.surf,border:`1px solid ${C.border}`,borderRadius:6,padding:'4px 12px',minWidth:82}},
+                  :h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',background:C.surf,border:`1px solid ${C.border}`,borderRadius:6,padding:'4px 12px',minWidth:82}},
                       h('div',{style:{fontSize:'0.56rem',color:C.muted,textTransform:'uppercase',letterSpacing:1}},'Tip'),
                       h('div',{style:{fontWeight:600,fontSize:'0.7rem',color:C.muted}},g.tipTime)
                     ),
-                winner && h('div',{style:{display:'flex',alignItems:'center',gap:5,
+                winner&&h('div',{style:{display:'flex',alignItems:'center',gap:5,
                   background:lv?'rgba(245,166,35,0.1)':'rgba(46,204,113,0.1)',
                   border:`1px solid ${lv?'rgba(245,166,35,0.4)':'rgba(46,204,113,0.3)'}`,
                   borderRadius:6,padding:'4px 10px',marginLeft:'auto'}},
@@ -243,9 +261,9 @@ const ranked = useMemo(() => {
           );
         })
       ),
- 
+
       // MANUAL
-      tab==='manual' && h('div',null,
+      tab==='manual'&&h('div',null,
         h('div',{style:{fontSize:'0.67rem',color:C.muted,background:C.surf,border:`1px solid ${C.border}`,borderRadius:6,padding:'9px 13px',marginBottom:13,lineHeight:1.7}},
           h('strong',{style:{color:C.accent}},'Manual Entry'),' — Enter Away @ Home scores for games not in the live feed.'
         ),
@@ -274,7 +292,7 @@ const ranked = useMemo(() => {
                     h('input',{type:'number',value:m.home,placeholder:'—',onInput:e=>upd(rName,gi,'home',e.target.value),min:0,max:999,style:{width:52,background:C.surf,border:`1px solid ${C.border}`,borderRadius:5,color:C.text,fontSize:'0.95rem',padding:'3px 5px',textAlign:'center',outline:'none'}})
                   )
                 ),
-                hw && h('div',{style:{display:'flex',alignItems:'center',gap:5,background:'rgba(46,204,113,0.1)',border:'1px solid rgba(46,204,113,0.3)',borderRadius:6,padding:'4px 10px',marginLeft:'auto'}},
+                hw&&h('div',{style:{display:'flex',alignItems:'center',gap:5,background:'rgba(46,204,113,0.1)',border:'1px solid rgba(46,204,113,0.3)',borderRadius:6,padding:'4px 10px',marginLeft:'auto'}},
                   h('span',{style:{fontWeight:700,color:C.green}},p),
                   h('span',{style:{fontSize:'0.72rem',color:C.accent}},`+$${cfg.payout}`)
                 )
@@ -283,14 +301,15 @@ const ranked = useMemo(() => {
           );
         })
       ),
- 
+
       // LEADERBOARD
-      tab==='leaderboard' && h('div',null,
+      tab==='leaderboard'&&h('div',null,
         h('div',{style:{fontWeight:700,fontSize:'0.85rem',letterSpacing:2,color:C.muted,textTransform:'uppercase',marginBottom:10}},'Standings'),
         ranked.length===0
-          ? h('div',{style:{color:C.muted,textAlign:'center',padding:30,fontSize:'0.85rem'}},'No results yet.')
-          : ranked.map(({rank,name,amt},idx)=>{
-              const max=ranked[0].amt;
+          ?h('div',{style:{color:C.muted,textAlign:'center',padding:30,fontSize:'0.85rem'}},'No results yet.')
+          :ranked.map(({rank,name,amt},idx)=>{
+              const max=ranked[0].amt||1;
+              const net=amt-BUYIN;
               const showRank=idx===0||ranked[idx-1].rank!==rank;
               return h('div',{key:name,style:{display:'flex',alignItems:'center',gap:12,background:C.card,border:`1px solid ${rank===1?'rgba(255,215,0,0.25)':C.border}`,borderRadius:8,padding:'11px 15px',marginBottom:6,marginTop:showRank&&idx>0?8:0}},
                 h('div',{style:{fontWeight:700,fontSize:'1.2rem',color:rankColor(rank),minWidth:26,textAlign:'center'}},showRank?rank:''),
@@ -299,44 +318,28 @@ const ranked = useMemo(() => {
                   h('div',{style:{height:3,background:`linear-gradient(90deg,${C.green},${C.accent})`,borderRadius:2,marginTop:4,width:`${Math.round(amt/max*100)}%`,maxWidth:180}}),
                   h('div',{style:{fontSize:'0.63rem',color:C.muted,marginTop:3}},`${wins[name]||0} win${(wins[name]||0)!==1?'s':''}`)
                 ),
-                h('div',{style:{fontWeight:800,fontSize:'1.3rem',color:C.green}},`$${amt}`)
+                h('div',{style:{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:2}},
+                  h('div',{style:{fontWeight:800,fontSize:'1.3rem',color:C.green}},`$${amt}`),
+                  h('div',{style:{fontWeight:600,fontSize:'0.78rem',color:net>=0?C.green:C.red}},`${net>=0?'+':''}$${net}`)
+                )
               );
             }),
-        h('div',{style:{fontSize:'0.65rem',color:C.muted,marginTop:12,textAlign:'center'}},'Tied players share the same rank · next rank skips accordingly')
+        h('div',{style:{fontSize:'0.65rem',color:C.muted,marginTop:12,textAlign:'center'}},'Tied players share the same rank · net vs $20 buy-in shown in green/red')
       ),
- 
-      // GRID
-      tab==='grid' && h('div',null,
-        h('div',{style:{fontWeight:700,fontSize:'0.85rem',letterSpacing:2,color:C.muted,textTransform:'uppercase',marginBottom:10}},'Score Grid'),
-        h('div',{style:{overflowX:'auto'}},
-          h('table',{style:{borderCollapse:'collapse',fontSize:'0.64rem',minWidth:480}},
-            h('thead',null,
-              h('tr',null,
-                h('th',{style:{background:'#1e3a5f',padding:'4px 6px'}}),
-                h('th',{colSpan:10,style:{background:'#1e3a5f',color:'#4a9eff',textAlign:'center',letterSpacing:3,fontSize:'0.7rem',padding:'4px 6px'}},'HOME LAST DIGIT')
-              ),
-              h('tr',null,
-                h('th',{style:{background:'#1e3a5f',padding:'4px 6px'}}),
-                HOME_DIGITS.map(d=>h('th',{key:d,style:{background:'#1e3a5f',color:'#fff',fontWeight:700,padding:'3px 6px'}},d))
-              ),
-              h('tr',null,h('th',{colSpan:11,style:{background:'#1a3a2a',color:'#2ecc71',textAlign:'center',letterSpacing:3,fontSize:'0.66rem',padding:'3px 6px'}},'AWAY LAST DIGIT'))
-            ),
-            h('tbody',null,
-              AWAY_DIGITS.map((a,ai)=>h('tr',{key:a},
-                h('td',{style:{background:'#1a3a2a',color:'#2ecc71',fontWeight:600,padding:'3px 5px',textAlign:'center',border:'1px solid #2a3347'}},a),
-                HOME_DIGITS.map((_,hi)=>h('td',{key:hi,style:{border:'1px solid #2a3347',padding:'3px 5px',textAlign:'center',color:'#6b7a99',background:'#1e2533'}},GRID[ai][hi]))
-              ))
-            )
-          )
+
+      // HEAT MAP
+      tab==='heatmap'&&h('div',null,
+        h('div',{style:{marginBottom:14}},
+          h('div',{style:{fontWeight:700,fontSize:'0.85rem',letterSpacing:2,color:C.muted,textTransform:'uppercase',marginBottom:4}},'🔥 Box Heat Map'),
+          h('div',{style:{fontSize:'0.68rem',color:C.muted}},'Color intensity shows total $ earned per box across all completed games')
         ),
-        h('div',{style:{marginTop:10,fontSize:'0.67rem',color:C.muted}},'Last digit: HOME (columns) × AWAY (rows) = winner')
-      )
-    )
-  );
-}
- 
-render(h(App,null), document.getElementById('app'));
-</script>
-</body>
-</html>
- 
+        h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:14,fontSize:'0.65rem',color:C.muted,flexWrap:'wrap'}},
+          h('span',null,'Cold'),
+          h('div',{style:{width:18,height:12,background:'#1a1f2e',border:`1px solid ${C.border}`,borderRadius:2}}),
+          h('div',{style:{width:18,height:12,background:'rgba(74,158,255,0.55)',borderRadius:2}}),
+          h('div',{style:{width:18,height:12,background:'rgba(46,204,113,0.7)',borderRadius:2}}),
+          h('div',{style:{width:18,height:12,background:'rgba(245,166,35,0.95)',borderRadius:2}}),
+          h('span',null,'Hot'),
+          h('span',{style:{marginLeft:8}},'Cell shows wins · $earned')
+        ),
+      
