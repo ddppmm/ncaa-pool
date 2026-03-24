@@ -342,4 +342,86 @@ function App(){
           h('span',null,'Hot'),
           h('span',{style:{marginLeft:8}},'Cell shows wins · $earned')
         ),
-      
+        h('div',{style:{overflowX:'auto',marginBottom:24}},
+          h('table',{style:{borderCollapse:'collapse',fontSize:'0.6rem',minWidth:560}},
+            h('thead',null,
+              h('tr',null,
+                h('th',{style:{background:'#1e3a5f',padding:'4px 6px'}}),
+                h('th',{colSpan:10,style:{background:'#1e3a5f',color:C.blue,textAlign:'center',letterSpacing:2,fontSize:'0.68rem',padding:'4px 6px'}},'HOME LAST DIGIT')
+              ),
+              h('tr',null,
+                h('th',{style:{background:'#1e3a5f',color:C.muted,padding:'3px 8px',fontSize:'0.58rem'}},'AWAY'),
+                HOME_DIGITS.map(d=>h('th',{key:d,style:{background:'#1e3a5f',color:'#fff',fontWeight:700,padding:'3px 8px',textAlign:'center'}},d))
+              ),
+              h('tr',null,h('th',{colSpan:11,style:{background:'#1a3a2a',color:C.green,textAlign:'center',letterSpacing:2,fontSize:'0.6rem',padding:'3px 6px'}},'AWAY LAST DIGIT'))
+            ),
+            h('tbody',null,
+              AWAY_DIGITS.map((a,ai)=>h('tr',{key:a},
+                h('td',{style:{background:'#1a3a2a',color:C.green,fontWeight:600,padding:'3px 6px',textAlign:'center',border:`1px solid ${C.border}`}},a),
+                HOME_DIGITS.map((_,hi)=>{
+                  const e=heatEarn[ai][hi];
+                  const w=heatWins[ai][hi];
+                  const player=GRID[ai][hi];
+                  const bg=cellHeatColor(e,heatMax);
+                  return h('td',{key:hi,style:{border:`1px solid ${C.border}`,padding:'5px 3px',textAlign:'center',background:bg,minWidth:56,verticalAlign:'middle'}},
+                    h('div',{style:{fontWeight:700,fontSize:'0.63rem',color:e>0?'#fff':C.muted}},player),
+                    e>0
+                      ?h('div',{style:{fontSize:'0.58rem',color:'rgba(255,255,255,0.85)',marginTop:1}},`${w}W · $${e}`)
+                      :h('div',{style:{fontSize:'0.58rem',color:C.muted}},'—')
+                  );
+                })
+              ))
+            )
+          )
+        ),
+        h('div',null,
+          h('div',{style:{fontWeight:700,fontSize:'0.8rem',color:C.muted,textTransform:'uppercase',letterSpacing:2,marginBottom:10}},'🔥 Hottest Boxes'),
+          hotBoxes.length===0
+            ?h('div',{style:{color:C.muted,fontSize:'0.8rem'}},'No completed games yet')
+            :hotBoxes.map((box,i)=>h('div',{key:i,style:{display:'flex',alignItems:'center',gap:10,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 14px',marginBottom:6}},
+                h('div',{style:{fontWeight:700,fontSize:'1rem',color:C.muted,minWidth:20}},i+1),
+                h('div',{style:{flex:1}},
+                  h('div',{style:{fontWeight:700,color:C.text}},box.player),
+                  h('div',{style:{fontSize:'0.63rem',color:C.muted,marginTop:2}},`Home digit ${box.hd} × Away digit ${box.ad}`)
+                ),
+                h('div',{style:{fontWeight:700,color:C.accent,marginRight:8}},`${box.w} win${box.w!==1?'s':''}`),
+                h('div',{style:{fontWeight:800,fontSize:'1.1rem',color:C.green}},`$${box.e}`)
+              ))
+        )
+      ),
+
+      // GRID
+      tab==='grid'&&h('div',null,
+        h('div',{style:{fontWeight:700,fontSize:'0.85rem',letterSpacing:2,color:C.muted,textTransform:'uppercase',marginBottom:10}},'Score Grid'),
+        h('div',{style:{overflowX:'auto'}},
+          h('table',{style:{borderCollapse:'collapse',fontSize:'0.64rem',minWidth:480}},
+            h('thead',null,
+              h('tr',null,
+                h('th',{style:{background:'#1e3a5f',padding:'4px 6px'}}),
+                h('th',{colSpan:10,style:{background:'#1e3a5f',color:C.blue,textAlign:'center',letterSpacing:3,fontSize:'0.7rem',padding:'4px 6px'}},'HOME LAST DIGIT')
+              ),
+              h('tr',null,
+                h('th',{style:{background:'#1e3a5f',padding:'4px 6px'}}),
+                HOME_DIGITS.map(d=>h('th',{key:d,style:{background:'#1e3a5f',color:'#fff',fontWeight:700,padding:'3px 6px'}},d))
+              ),
+              h('tr',null,h('th',{colSpan:11,style:{background:'#1a3a2a',color:C.green,textAlign:'center',letterSpacing:3,fontSize:'0.66rem',padding:'3px 6px'}},'AWAY LAST DIGIT'))
+            ),
+            h('tbody',null,
+              AWAY_DIGITS.map((a,ai)=>h('tr',{key:a},
+                h('td',{style:{background:'#1a3a2a',color:C.green,fontWeight:600,padding:'3px 5px',textAlign:'center',border:`1px solid ${C.border}`}},a),
+                HOME_DIGITS.map((_,hi)=>h('td',{key:hi,style:{border:`1px solid ${C.border}`,padding:'3px 5px',textAlign:'center',color:C.muted,background:C.card}},GRID[ai][hi]))
+              ))
+            )
+          )
+        ),
+        h('div',{style:{marginTop:10,fontSize:'0.67rem',color:C.muted}},'Last digit: HOME (columns) × AWAY (rows) = winner')
+      )
+    )
+  );
+}
+
+render(h(App,null),document.getElementById('app'));
+</script>
+</body>
+</html>
+
