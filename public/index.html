@@ -81,6 +81,7 @@ function Pill({type,label}){
 
 function App(){
   const [tab,setTab]=useState('scores');
+  const [showManual,setShowManual]=useState(false);
   const [games,setGames]=useState([]);
   const [feedTs,setFeedTs]=useState('Loading...');
   const [loading,setLoading]=useState(false);
@@ -141,7 +142,6 @@ function App(){
     return result;
   },[earn]);
 
-  // Heat map — keyed by $ earned so hottest = most money
   const {heatEarn,heatWins,heatMax}=useMemo(()=>{
     const he=Array.from({length:10},()=>Array(10).fill(0));
     const hw=Array.from({length:10},()=>Array(10).fill(0));
@@ -151,8 +151,7 @@ function App(){
       const hd=parseInt(g.homeScore)%10,ad=parseInt(g.awayScore)%10;
       const hi=HOME_DIGITS.indexOf(hd),ai=AWAY_DIGITS.indexOf(ad);
       if(hi===-1||ai===-1) return;
-      he[ai][hi]+=cfg.payout;
-      hw[ai][hi]++;
+      he[ai][hi]+=cfg.payout;hw[ai][hi]++;
     });
     const max=Math.max(1,...he.flat());
     return{heatEarn:he,heatWins:hw,heatMax:max};
@@ -173,10 +172,13 @@ function App(){
   const finals=games.filter(g=>isFinal(g.status)).length;
   const byRound=useMemo(()=>{const m={};games.forEach(g=>{(m[g.round]=m[g.round]||[]).push(g);});return m;},[games]);
   const rankColor=r=>r===1?'#ffd700':r===2?'#c0c0c0':r===3?'#cd7f32':C.muted;
-  const tabs=[['scores','📊 Scores'],['manual','✏️ Manual'],['leaderboard','🏆 Standings'],['heatmap','🔥 Heat Map'],['grid','🔲 Grid']];
+
+  // Tabs: Grid removed, Manual removed
+  const tabs=[['scores','📊 Scores'],['leaderboard','🏆 Standings'],['heatmap','🔥 Heat Map']];
 
   return h('div',{style:{background:C.bg,minHeight:'100vh',paddingBottom:60}},
 
+    // Header
     h('div',{style:{background:'linear-gradient(135deg,#1a2035,#0d0f14)',borderBottom:`2px solid ${C.accent}`,padding:'14px 18px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:100}},
       h('div',null,
         h('div',{style:{fontWeight:800,fontSize:'1.5rem',letterSpacing:2,color:C.accent}},'🏀 NCAA BOX POOL'),
@@ -196,6 +198,7 @@ function App(){
       )
     ),
 
+    // Tabs
     h('div',{style:{display:'flex',background:C.surf,borderBottom:`1px solid ${C.border}`,padding:'0 12px',overflowX:'auto'}},
       tabs.map(([k,lbl])=>h('button',{key:k,onClick:()=>setTab(k),style:{fontSize:'0.73rem',padding:'11px 13px',background:'none',border:'none',color:tab===k?C.accent:C.muted,cursor:'pointer',whiteSpace:'nowrap',borderBottom:tab===k?`2px solid ${C.accent}`:'2px solid transparent'}},lbl))
     ),
@@ -259,47 +262,54 @@ function App(){
               );
             })
           );
-        })
-      ),
+        }),
 
-      // MANUAL
-      tab==='manual'&&h('div',null,
-        h('div',{style:{fontSize:'0.67rem',color:C.muted,background:C.surf,border:`1px solid ${C.border}`,borderRadius:6,padding:'9px 13px',marginBottom:13,lineHeight:1.7}},
-          h('strong',{style:{color:C.accent}},'Manual Entry'),' — Enter Away @ Home scores for games not in the live feed.'
+        // Manual entry — small subtle link at bottom of scores
+        h('div',{style:{textAlign:'center',marginTop:8}},
+          h('button',{onClick:()=>setShowManual(!showManual),style:{background:'none',border:'none',color:C.muted,fontSize:'0.68rem',cursor:'pointer',textDecoration:'underline',opacity:0.6}},
+            showManual?'▲ Hide manual entry':'✏️ Manual score entry'
+          )
         ),
-        ROUNDS.map(rName=>{
-          const cfg=ROUND_MAP[rName];
-          const filled=Object.values(manual[rName]||{}).filter(m=>m.home&&m.away).length;
-          return h('div',{key:rName,style:{marginBottom:24}},
-            h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:9}},
-              h('div',{style:{fontWeight:700,fontSize:'1.05rem',color:C.accent}},rName),
-              h('div',{style:{fontSize:'0.68rem',color:C.muted,background:C.card,padding:'3px 10px',borderRadius:20,border:`1px solid ${C.border}`}},`$${cfg.payout}/win · ${filled} entered`)
-            ),
-            Array.from({length:8},(_,gi)=>{
-              const m=manual[rName][gi]||{home:'',away:''};
-              const p=getWinner(m.home,m.away);
-              const hw=p&&m.home&&m.away;
-              return h('div',{key:gi,style:{display:'flex',alignItems:'center',gap:10,background:hw?'rgba(46,204,113,0.1)':C.card,border:`1px solid ${hw?'rgba(46,204,113,0.3)':C.border}`,borderRadius:8,padding:'9px 13px',marginBottom:7,flexWrap:'wrap'}},
-                h('div',{style:{fontSize:'0.65rem',color:C.muted,minWidth:22}},`#${gi+1}`),
-                h('div',{style:{display:'flex',alignItems:'flex-end',gap:6}},
-                  h('div',null,
-                    h('div',{style:{fontSize:'0.56rem',color:C.muted,textAlign:'center',marginBottom:2}},'Away'),
-                    h('input',{type:'number',value:m.away,placeholder:'—',onInput:e=>upd(rName,gi,'away',e.target.value),min:0,max:999,style:{width:52,background:C.surf,border:`1px solid ${C.border}`,borderRadius:5,color:C.text,fontSize:'0.95rem',padding:'3px 5px',textAlign:'center',outline:'none'}})
+
+        // Inline manual entry panel (hidden by default)
+        showManual&&h('div',{style:{marginTop:12,background:C.surf,border:`1px solid ${C.border}`,borderRadius:10,padding:16}},
+          h('div',{style:{fontSize:'0.67rem',color:C.muted,marginBottom:13,lineHeight:1.7}},
+            h('strong',{style:{color:C.accent}},'Manual Entry'),' — Enter Away @ Home scores for games not in the live feed.'
+          ),
+          ROUNDS.map(rName=>{
+            const cfg=ROUND_MAP[rName];
+            const filled=Object.values(manual[rName]||{}).filter(m=>m.home&&m.away).length;
+            return h('div',{key:rName,style:{marginBottom:20}},
+              h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}},
+                h('div',{style:{fontWeight:700,fontSize:'0.92rem',color:C.accent}},rName),
+                h('div',{style:{fontSize:'0.65rem',color:C.muted}},`$${cfg.payout}/win · ${filled} entered`)
+              ),
+              Array.from({length:8},(_,gi)=>{
+                const m=manual[rName][gi]||{home:'',away:''};
+                const p=getWinner(m.home,m.away);
+                const hw=p&&m.home&&m.away;
+                return h('div',{key:gi,style:{display:'flex',alignItems:'center',gap:10,background:hw?'rgba(46,204,113,0.1)':C.card,border:`1px solid ${hw?'rgba(46,204,113,0.3)':C.border}`,borderRadius:8,padding:'8px 12px',marginBottom:6,flexWrap:'wrap'}},
+                  h('div',{style:{fontSize:'0.65rem',color:C.muted,minWidth:22}},`#${gi+1}`),
+                  h('div',{style:{display:'flex',alignItems:'flex-end',gap:6}},
+                    h('div',null,
+                      h('div',{style:{fontSize:'0.56rem',color:C.muted,textAlign:'center',marginBottom:2}},'Away'),
+                      h('input',{type:'number',value:m.away,placeholder:'—',onInput:e=>upd(rName,gi,'away',e.target.value),min:0,max:999,style:{width:52,background:C.bg,border:`1px solid ${C.border}`,borderRadius:5,color:C.text,fontSize:'0.95rem',padding:'3px 5px',textAlign:'center',outline:'none'}})
+                    ),
+                    h('div',{style:{color:C.muted,paddingBottom:5}},' @ '),
+                    h('div',null,
+                      h('div',{style:{fontSize:'0.56rem',color:C.muted,textAlign:'center',marginBottom:2}},'Home'),
+                      h('input',{type:'number',value:m.home,placeholder:'—',onInput:e=>upd(rName,gi,'home',e.target.value),min:0,max:999,style:{width:52,background:C.bg,border:`1px solid ${C.border}`,borderRadius:5,color:C.text,fontSize:'0.95rem',padding:'3px 5px',textAlign:'center',outline:'none'}})
+                    )
                   ),
-                  h('div',{style:{color:C.muted,paddingBottom:5}},' @ '),
-                  h('div',null,
-                    h('div',{style:{fontSize:'0.56rem',color:C.muted,textAlign:'center',marginBottom:2}},'Home'),
-                    h('input',{type:'number',value:m.home,placeholder:'—',onInput:e=>upd(rName,gi,'home',e.target.value),min:0,max:999,style:{width:52,background:C.surf,border:`1px solid ${C.border}`,borderRadius:5,color:C.text,fontSize:'0.95rem',padding:'3px 5px',textAlign:'center',outline:'none'}})
+                  hw&&h('div',{style:{display:'flex',alignItems:'center',gap:5,background:'rgba(46,204,113,0.1)',border:'1px solid rgba(46,204,113,0.3)',borderRadius:6,padding:'4px 10px',marginLeft:'auto'}},
+                    h('span',{style:{fontWeight:700,color:C.green}},p),
+                    h('span',{style:{fontSize:'0.72rem',color:C.accent}},`+$${cfg.payout}`)
                   )
-                ),
-                hw&&h('div',{style:{display:'flex',alignItems:'center',gap:5,background:'rgba(46,204,113,0.1)',border:'1px solid rgba(46,204,113,0.3)',borderRadius:6,padding:'4px 10px',marginLeft:'auto'}},
-                  h('span',{style:{fontWeight:700,color:C.green}},p),
-                  h('span',{style:{fontSize:'0.72rem',color:C.accent}},`+$${cfg.payout}`)
-                )
-              );
-            })
-          );
-        })
+                );
+              })
+            );
+          })
+        )
       ),
 
       // LEADERBOARD
@@ -388,33 +398,6 @@ function App(){
                 h('div',{style:{fontWeight:800,fontSize:'1.1rem',color:C.green}},`$${box.e}`)
               ))
         )
-      ),
-
-      // GRID
-      tab==='grid'&&h('div',null,
-        h('div',{style:{fontWeight:700,fontSize:'0.85rem',letterSpacing:2,color:C.muted,textTransform:'uppercase',marginBottom:10}},'Score Grid'),
-        h('div',{style:{overflowX:'auto'}},
-          h('table',{style:{borderCollapse:'collapse',fontSize:'0.64rem',minWidth:480}},
-            h('thead',null,
-              h('tr',null,
-                h('th',{style:{background:'#1e3a5f',padding:'4px 6px'}}),
-                h('th',{colSpan:10,style:{background:'#1e3a5f',color:C.blue,textAlign:'center',letterSpacing:3,fontSize:'0.7rem',padding:'4px 6px'}},'HOME LAST DIGIT')
-              ),
-              h('tr',null,
-                h('th',{style:{background:'#1e3a5f',padding:'4px 6px'}}),
-                HOME_DIGITS.map(d=>h('th',{key:d,style:{background:'#1e3a5f',color:'#fff',fontWeight:700,padding:'3px 6px'}},d))
-              ),
-              h('tr',null,h('th',{colSpan:11,style:{background:'#1a3a2a',color:C.green,textAlign:'center',letterSpacing:3,fontSize:'0.66rem',padding:'3px 6px'}},'AWAY LAST DIGIT'))
-            ),
-            h('tbody',null,
-              AWAY_DIGITS.map((a,ai)=>h('tr',{key:a},
-                h('td',{style:{background:'#1a3a2a',color:C.green,fontWeight:600,padding:'3px 5px',textAlign:'center',border:`1px solid ${C.border}`}},a),
-                HOME_DIGITS.map((_,hi)=>h('td',{key:hi,style:{border:`1px solid ${C.border}`,padding:'3px 5px',textAlign:'center',color:C.muted,background:C.card}},GRID[ai][hi]))
-              ))
-            )
-          )
-        ),
-        h('div',{style:{marginTop:10,fontSize:'0.67rem',color:C.muted}},'Last digit: HOME (columns) × AWAY (rows) = winner')
       )
     )
   );
@@ -424,4 +407,3 @@ render(h(App,null),document.getElementById('app'));
 </script>
 </body>
 </html>
-
