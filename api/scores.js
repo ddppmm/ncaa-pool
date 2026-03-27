@@ -3,7 +3,10 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
 
-  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
 
   const BASE_URL = 'https://ncaa-api.henrygd.me/scoreboard/basketball-men/d1';
 
@@ -28,6 +31,11 @@ export default async function handler(req, res) {
         (data.games || []).forEach(entry => {
           const g = entry.game;
           if (!g.championshipGame) return;
+
+          // Strip HTML entities like &#174; (registered trademark) from round title
+          const rawRound = g.championshipGame?.round?.title || '';
+          const cleanRound = rawRound.replace(/&#\d+;|&[a-z]+;/gi, '').trim();
+
           allGames.push({
             gameID:    g.gameID,
             status:    g.gameState,
@@ -37,7 +45,7 @@ export default async function handler(req, res) {
             homeScore: g.home.score || '',
             clock:     g.contestClock || '',
             period:    g.currentPeriod || '',
-            round:     g.championshipGame?.round?.title || '',
+            round:     cleanRound,
             tipTime:   g.startTime || '',
             epoch:     parseInt(g.startTimeEpoch || '0'),
             roundNum:  g.championshipGame?.round?.roundNumber || 99,
