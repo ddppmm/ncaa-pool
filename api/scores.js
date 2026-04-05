@@ -10,14 +10,13 @@ export default async function handler(req, res) {
 
   const BASE_URL = 'https://ncaa-api.henrygd.me/scoreboard/basketball-men/d1';
 
-  // All tournament dates — fixed list covers entire tournament
   const DATES = [
-    '2026/03/19', '2026/03/20',  // R1
-    '2026/03/21', '2026/03/22',  // R2
-    '2026/03/26', '2026/03/27',  // Sweet 16
-    '2026/03/28', '2026/03/29',  // Elite 8
-    '2026/04/04',                // Final Four
-    '2026/04/06'                 // Championship
+    '2026/03/19', '2026/03/20',
+    '2026/03/21', '2026/03/22',
+    '2026/03/26', '2026/03/27',
+    '2026/03/28', '2026/03/29',
+    '2026/04/04',
+    '2026/04/06'
   ];
 
   try {
@@ -32,9 +31,17 @@ export default async function handler(req, res) {
           const g = entry.game;
           if (!g.championshipGame) return;
 
-          // Strip HTML entities like &#174; (registered trademark) from round title
+          // Strip HTML entities and normalize round names to match ROUND_MAP
           const rawRound = g.championshipGame?.round?.title || '';
-          const cleanRound = rawRound.replace(/&#\d+;|&[a-z]+;/gi, '').trim();
+          const cleanRound = rawRound
+            .replace(/&#\d+;|&[a-z]+;/gi, '')
+            .trim()
+            .replace(/^FINAL FOUR$/i,    'Final Four')
+            .replace(/^CHAMPIONSHIP$/i,  'Championship')
+            .replace(/^ELITE EIGHT$/i,   'Elite Eight')
+            .replace(/^SWEET 16$/i,      'Sweet 16')
+            .replace(/^SECOND ROUND$/i,  'Second Round')
+            .replace(/^FIRST ROUND$/i,   'First Round');
 
           allGames.push({
             gameID:    g.gameID,
